@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AI Washer Assistant</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        :root {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            color-scheme: light;
+        }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: #f1f4fb;
+        }
+        header {
+            padding: 1.75rem 2rem 1.25rem;
+            background: linear-gradient(135deg, #1f77d0, #3a9cfc);
+            color: #fff;
+            text-align: center;
+        }
+        header h1 {
+            margin: 0;
+            font-size: 1.9rem;
+        }
+        header p {
+            margin: 0.4rem 0 0;
+            opacity: 0.85;
+        }
+        main {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            padding: 1.5rem 1rem 2.5rem;
+        }
+        .chat-shell {
+            width: min(880px, 100%);
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        .slot-tracker {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            background: #ffffff;
+            padding: 0.75rem 1rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 26px rgba(46,98,167,0.08);
+        }
+        .slot-pill {
+            display: grid;
+            grid-template-columns: auto auto;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.35rem 0.7rem;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            background: #eef3ff;
+            color: #23406a;
+        }
+        .slot-pill[data-stage="MISSING"] {
+            background: #fff1f0;
+            color: #a13232;
+        }
+        .slot-pill[data-stage="ROUGH"] {
+            background: #fff9e6;
+            color: #a15a12;
+        }
+        .slot-pill-value {
+            font-weight: 600;
+            color: inherit;
+        }
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 1.4rem;
+            box-shadow: 0 18px 36px rgba(30, 61, 121, 0.12);
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        .message {
+            max-width: 86%;
+            padding: 0.95rem 1.1rem;
+            border-radius: 16px;
+            line-height: 1.45;
+            white-space: pre-wrap;
+        }
+        .message.user {
+            align-self: flex-end;
+            background: #1f77d0;
+            color: #fff;
+            border-bottom-right-radius: 6px;
+        }
+        .message.assistant {
+            align-self: flex-start;
+            background: #eef3ff;
+            color: #1d2a45;
+            border-bottom-left-radius: 6px;
+        }
+        .message .hint {
+            display: block;
+            margin-top: 0.55rem;
+            font-size: 0.8rem;
+            opacity: 0.7;
+        }
+        .card {
+            align-self: stretch;
+            background: #f7f9ff;
+            border-radius: 14px;
+            padding: 1.1rem 1.25rem;
+            border: 1px solid rgba(57, 115, 199, 0.16);
+        }
+        .card h4 {
+            margin: 0 0 0.75rem;
+            font-size: 1rem;
+            color: #1d2a45;
+        }
+        .card ul {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        .card li {
+            display: flex;
+            justify-content: space-between;
+            gap: 0.6rem;
+            align-items: flex-start;
+        }
+        .product-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        .product-meta strong {
+            font-size: 0.95rem;
+            color: #122647;
+        }
+        .product-meta small {
+            color: #4b5a7a;
+        }
+        .badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+            margin-top: 0.4rem;
+        }
+        .badge {
+            background: #e0ecff;
+            color: #1f3c73;
+            padding: 0.2rem 0.6rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+        }
+        .product-actions {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 0.4rem;
+        }
+        .product-actions button {
+            border: none;
+            border-radius: 999px;
+            padding: 0.45rem 0.9rem;
+            background: #1f77d0;
+            color: #fff;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+        .product-actions button:disabled {
+            opacity: 0.5;
+            cursor: default;
+        }
+        .chip-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        .chip-bar button {
+            padding: 0.45rem 0.9rem;
+            border-radius: 999px;
+            border: 1px solid rgba(34, 97, 196, 0.35);
+            background: rgba(255,255,255,0.9);
+            color: #1f3c73;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+        }
+        .chip-bar button:hover {
+            background: #1f77d0;
+            color: #fff;
+        }
+        form {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 0.25rem;
+        }
+        input[type="text"] {
+            flex: 1;
+            padding: 0.85rem 1rem;
+            border-radius: 999px;
+            border: 2px solid rgba(73, 128, 208, 0.35);
+            font-size: 1rem;
+            transition: border 0.2s ease;
+        }
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #1f77d0;
+        }
+        button[type="submit"] {
+            padding: 0.85rem 1.6rem;
+            border-radius: 999px;
+            border: none;
+            background: #1f77d0;
+            color: #fff;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+        button[type="submit"]:disabled {
+            opacity: 0.6;
+            cursor: wait;
+        }
+        @media (max-width: 640px) {
+            .messages {
+                padding: 1.1rem;
+            }
+            .message {
+                max-width: 100%;
+            }
+            .slot-tracker {
+                gap: 0.35rem;
+            }
+        }
+    </style>
+</head>
+<body>
+<header>
+    <h1>AI Washing Machine Advisor</h1>
+    <p>Backend-guided conversation that narrows slots, previews matches, and explains trade-offs.</p>
+</header>
+<main>
+    <section class="chat-shell">
+        <div id="slot-tracker" class="slot-tracker"></div>
+        <div id="messages" class="messages"></div>
+        <div id="chip-bar" class="chip-bar"></div>
+        <form id="chat-form">
+            <input id="chat-input" type="text" placeholder="Tell me about your budget or constraints…" autocomplete="off">
+            <button type="submit">Send</button>
+        </form>
+    </section>
+</main>
+
+<script>
+    const messagesEl = document.getElementById('messages');
+    const formEl = document.getElementById('chat-form');
+    const inputEl = document.getElementById('chat-input');
+    const chipBarEl = document.getElementById('chip-bar');
+    const slotTrackerEl = document.getElementById('slot-tracker');
+
+    let sessionId = null;
+
+    window.addEventListener('DOMContentLoaded', () => {
+        startConversation().catch(err => {
+            console.error(err);
+            appendAssistantMessage("⚠️ Unable to start the assistant. Please refresh.");
+        });
+    });
+
+    formEl.addEventListener('submit', (evt) => {
+        evt.preventDefault();
+        const text = inputEl.value.trim();
+        if (!text) {
+            return;
+        }
+        sendTurn({message: text}, text);
+    });
+
+    function appendUserMessage(text) {
+        const bubble = document.createElement('div');
+        bubble.className = 'message user';
+        bubble.textContent = text;
+        messagesEl.appendChild(bubble);
+        scrollMessages();
+    }
+
+    function appendAssistantMessage(text, hint) {
+        const bubble = document.createElement('div');
+        bubble.className = 'message assistant';
+        bubble.textContent = text;
+        if (hint) {
+            const hintEl = document.createElement('span');
+            hintEl.className = 'hint';
+            hintEl.textContent = hint;
+            bubble.appendChild(hintEl);
+        }
+        messagesEl.appendChild(bubble);
+        scrollMessages();
+    }
+
+    function renderPreview(preview) {
+        document.querySelectorAll('.preview-card').forEach(card => card.remove());
+        if (!preview) {
+            return;
+        }
+        const card = document.createElement('div');
+        card.className = 'card preview-card';
+        const heading = document.createElement('h4');
+        heading.textContent = preview.headline || 'Preview';
+        card.appendChild(heading);
+
+        const list = document.createElement('ul');
+        for (const item of preview.items || []) {
+            const li = document.createElement('li');
+            const meta = document.createElement('div');
+            meta.className = 'product-meta';
+            const title = document.createElement('strong');
+            title.textContent = `${item.brand || 'Unknown'} ${item.model || ''}`.trim();
+            const info = document.createElement('small');
+            info.textContent = `€${item.price?.toFixed ? item.price.toFixed(0) : item.price} · ${item.capacityKg || '?'}kg · ${item.type || '?'}`;
+            meta.appendChild(title);
+            meta.appendChild(info);
+            if (item.badges && item.badges.length) {
+                const badges = document.createElement('div');
+                badges.className = 'badges';
+                item.badges.forEach(b => {
+                    const badge = document.createElement('span');
+                    badge.className = 'badge';
+                    badge.textContent = b;
+                    badges.appendChild(badge);
+                });
+                meta.appendChild(badges);
+            }
+            li.appendChild(meta);
+            list.appendChild(li);
+        }
+        card.appendChild(list);
+        messagesEl.appendChild(card);
+        scrollMessages();
+    }
+
+    function renderResult(result) {
+        document.querySelectorAll('.result-card').forEach(card => card.remove());
+        if (!result) {
+            return;
+        }
+        const card = document.createElement('div');
+        card.className = 'card result-card';
+        const explanation = document.createElement('div');
+        explanation.style.whiteSpace = 'pre-wrap';
+        explanation.style.marginBottom = '0.9rem';
+        explanation.textContent = result.explanation || '';
+        card.appendChild(explanation);
+
+        const list = document.createElement('ul');
+        for (const item of result.items || []) {
+            const li = document.createElement('li');
+
+            const meta = document.createElement('div');
+            meta.className = 'product-meta';
+            const title = document.createElement('strong');
+            title.textContent = `${item.brand || 'Unknown'} ${item.model || ''}`.trim();
+            const info = document.createElement('small');
+            info.textContent = `€${item.price?.toFixed ? item.price.toFixed(0) : item.price} · ${item.capacityKg || '?'}kg · ${item.type || '?'}`;
+            meta.appendChild(title);
+            meta.appendChild(info);
+            if (item.badges && item.badges.length) {
+                const badges = document.createElement('div');
+                badges.className = 'badges';
+                item.badges.forEach(b => {
+                    const badge = document.createElement('span');
+                    badge.className = 'badge';
+                    badge.textContent = b;
+                    badges.appendChild(badge);
+                });
+                meta.appendChild(badges);
+            }
+
+            const actions = document.createElement('div');
+            actions.className = 'product-actions';
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.textContent = 'Add to shortlist';
+            button.addEventListener('click', () => {
+                button.disabled = true;
+                recordEvent('add_to_cart', item.id).finally(() => {
+                    setTimeout(() => (button.disabled = false), 1200);
+                });
+            });
+            actions.appendChild(button);
+
+            li.appendChild(meta);
+            li.appendChild(actions);
+            list.appendChild(li);
+        }
+        card.appendChild(list);
+        messagesEl.appendChild(card);
+        scrollMessages();
+    }
+
+    function renderSlots(slots) {
+        slotTrackerEl.innerHTML = '';
+        if (!slots || !slots.length) {
+            return;
+        }
+        slots.forEach(slot => {
+            const pill = document.createElement('div');
+            pill.className = 'slot-pill';
+            pill.dataset.stage = slot.stage;
+            const nameEl = document.createElement('span');
+            nameEl.textContent = formatSlotName(slot.slot);
+            const valueEl = document.createElement('span');
+            valueEl.className = 'slot-pill-value';
+            valueEl.textContent = slot.value || '';
+            pill.appendChild(nameEl);
+            pill.appendChild(valueEl);
+            slotTrackerEl.appendChild(pill);
+        });
+    }
+
+    function formatSlotName(slot) {
+        switch ((slot || '').toLowerCase()) {
+            case 'budget': return 'Budget';
+            case 'type': return 'Type';
+            case 'capacity': return 'Capacity';
+            case 'brand': return 'Brand';
+            case 'dimensions': return 'Dimensions';
+            default: return slot;
+        }
+    }
+
+    function renderChips(chips) {
+        chipBarEl.innerHTML = '';
+        if (!chips || !chips.length) {
+            return;
+        }
+        chips.forEach(chipValue => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.textContent = chipValue;
+            btn.addEventListener('click', () => {
+                sendTurn({chip: chipValue}, chipValue);
+            });
+            chipBarEl.appendChild(btn);
+        });
+    }
+
+    async function startConversation() {
+        const payload = await postJson('/api/conversations', {});
+        sessionId = payload.sessionId;
+        handleAssistantPayload(payload, false);
+    }
+
+    async function sendTurn(body, userEcho) {
+        if (!sessionId) {
+            return;
+        }
+        if (userEcho) {
+            appendUserMessage(userEcho);
+        }
+        setInputEnabled(false);
+        const thinking = appendThinkingMessage();
+        try {
+            const payload = await postJson(`/api/conversations/${sessionId}/messages`, body);
+            sessionId = payload.sessionId || sessionId;
+            thinking.remove();
+            handleAssistantPayload(payload, true);
+        } catch (err) {
+            console.error(err);
+            thinking.textContent = `⚠️ ${err.message || 'Request failed'}`;
+        } finally {
+            setInputEnabled(true);
+            inputEl.focus();
+        }
+    }
+
+    async function recordEvent(type, productId) {
+        if (!sessionId) {
+            return;
+        }
+        try {
+            await postJson(`/api/conversations/${sessionId}/events`, {type, productId});
+        } catch (err) {
+            console.warn('Failed to record event', err);
+        }
+    }
+
+    function handleAssistantPayload(payload, renderAssistant = true) {
+        if (!payload) {
+            return;
+        }
+        if (renderAssistant && payload.assistant) {
+            appendAssistantMessage(payload.assistant.text, payload.assistant.hint);
+        } else if (!renderAssistant && payload.assistant) {
+            appendAssistantMessage(payload.assistant.text, payload.assistant.hint);
+        }
+        renderPreview(payload.preview);
+        renderResult(payload.result);
+        renderSlots(payload.slots);
+        renderChips(payload.chips);
+        if (payload.metrics) {
+            console.debug('metrics', payload.metrics);
+        }
+    }
+
+    function appendThinkingMessage() {
+        const bubble = document.createElement('div');
+        bubble.className = 'message assistant';
+        bubble.textContent = '…';
+        messagesEl.appendChild(bubble);
+        scrollMessages();
+        return bubble;
+    }
+
+    function setInputEnabled(enabled) {
+        inputEl.disabled = !enabled;
+        formEl.querySelector('button[type="submit"]').disabled = !enabled;
+        if (enabled) {
+            inputEl.value = '';
+        }
+    }
+
+    async function postJson(url, body) {
+        const resp = await fetch(url, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body ?? {})
+        });
+        if (!resp.ok) {
+            const text = await resp.text();
+            throw new Error(text || `HTTP ${resp.status}`);
+        }
+        return resp.json();
+    }
+
+    function scrollMessages() {
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+</script>
+</body>
+</html>
