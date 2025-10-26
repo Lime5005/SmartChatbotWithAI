@@ -1,6 +1,15 @@
 server:
   port: 8080
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    prometheus:
+      enabled: true
+
 spring:
   datasource:
     url: jdbc:h2:mem:shopdb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;
@@ -20,7 +29,3 @@ spring:
       embedding:
         options:
           model: nomic-embed-text:latest
-
-
-
-
